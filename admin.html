@@ -48,6 +48,28 @@
     font-family:'Work Sans', sans-serif; outline:none;
   }
   input:focus, textarea:focus{ border-color:var(--gold); }
+  select{
+    width:100%; background:var(--bg-soft); border:1px solid var(--line);
+    color:var(--cream); border-radius:10px; padding:12px 14px; font-size:14px;
+    font-family:'Work Sans', sans-serif; outline:none; cursor:pointer;
+  }
+  select:focus{ border-color:var(--gold); }
+  .cat-chip{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:999px;
+    padding:7px 8px 7px 14px; font-size:13px; margin:0 8px 8px 0;
+  }
+  .cat-chip .cat-count{ color:var(--muted); font-size:11px; font-family:'JetBrains Mono', monospace; }
+  .cat-chip button{
+    background:var(--card); border:none; color:var(--muted); width:22px; height:22px;
+    border-radius:50%; cursor:pointer; font-size:12px; line-height:1;
+  }
+  .cat-chip button:hover{ color:var(--coral); }
+  .cat-badge{
+    display:inline-block; font-size:10px; font-family:'JetBrains Mono', monospace;
+    color:var(--gold); background:rgba(255,193,69,0.1); padding:2px 8px; border-radius:999px;
+    margin-top:3px;
+  }
   .btn{
     font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px;
     background:var(--coral); color:var(--cream); border:none;
@@ -188,6 +210,15 @@
     <div class="stats-row" id="statsRow"></div>
 
     <div class="panel">
+      <h2>Categories</h2>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <input type="text" id="newCategoryInput" placeholder="e.g. Mr &amp; Miss, Most Smart, Celebrity Look-Alike" onkeydown="if(event.key==='Enter') addCategory()">
+        <button class="btn small" style="width:auto; flex-shrink:0;" onclick="addCategory()">Add category</button>
+      </div>
+      <div id="categoryList"><div class="empty-note">Loading…</div></div>
+    </div>
+
+    <div class="panel">
       <h2>Contest settings</h2>
       <div class="settings-row">
         <div class="toggle" id="votingToggle" onclick="toggleVoting()">
@@ -211,6 +242,7 @@
         </div>
       </div>
       <div class="form-grid">
+        <select id="categorySelect"></select>
         <input type="text" id="nameInput" placeholder="Contestant name">
         <textarea id="bioInput" placeholder="Short bio / class / age (optional)" rows="2"></textarea>
       </div>
@@ -222,6 +254,9 @@
 
     <div class="panel">
       <h2>Contestants <span id="countBadge" style="color:var(--muted); font-weight:400; font-size:13px;"></span></h2>
+      <div style="margin-bottom:14px;">
+        <select id="filterSelect" onchange="renderList()"><option value="">All categories</option></select>
+      </div>
       <div id="contestantList"><div class="empty-note">Loading…</div></div>
     </div>
   </main>
@@ -235,6 +270,7 @@
 
   let adminPassword = '';
   let contestants = [];
+  let categories = [];
   let votingOpen = true;
   let editingId = null;
   let pendingPhoto = { url: '', fileId: '' };
@@ -285,7 +321,80 @@
 
   async function loadAll(){
     await loadSettings();
+    await loadCategories();
     await loadContestants();
+  }
+
+  async function loadCategories(){
+    const res = await fetch(BACKEND_URL + '?action=getCategories');
+    const data = await res.json();
+    if(data.ok){
+      categories = data.categories;
+      renderCategoryList();
+      renderCategorySelects();
+    }
+  }
+
+  function categoryName(id){
+    const c = categories.find(x => x.id === id);
+    return c ? c.name : 'Uncategorized';
+  }
+
+  function renderCategoryList(){
+    const list = document.getElementById('categoryList');
+    if(categories.length === 0){
+      list.innerHTML = '<div class="empty-note">No categories yet. Add one above, e.g. "Mr & Miss".</div>';
+      return;
+    }
+    list.innerHTML = categories.map(cat => {
+      const count = contestants.filter(c => c.categoryId === cat.id).length;
+      return `<span class="cat-chip">${escapeHtml(cat.name)} <span class="cat-count">${count}</span>
+        <button onclick="deleteCategoryPrompt('${cat.id}', '${escapeHtml(cat.name).replace(/'/g,"\\'")}')" title="Delete">✕</button>
+      </span>`;
+    }).join('');
+  }
+
+  function renderCategorySelects(){
+    const options = categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    const catSelect = document.getElementById('categorySelect');
+    catSelect.innerHTML = categories.length
+      ? options
+      : '<option value="">Add a category first</option>';
+
+    const filterSelect = document.getElementById('filterSelect');
+    const currentFilter = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">All categories</option>' + options;
+    filterSelect.value = currentFilter;
+  }
+
+  async function addCategory(){
+    const input = document.getElementById('newCategoryInput');
+    const name = input.value.trim();
+    if(!name){ return; }
+    const result = await apiPost({ action: 'addCategory', adminPassword, name });
+    if(result.ok){
+      input.value = '';
+      showToast('Category added', 'success');
+      loadCategories();
+    } else {
+      showToast('Could not add category', 'error');
+    }
+  }
+
+  async function deleteCategoryPrompt(id, name){
+    const count = contestants.filter(c => c.categoryId === id).length;
+    const warning = count > 0
+      ? `Delete "${name}"? ${count} contestant(s) in it will become uncategorized. This cannot be undone.`
+      : `Delete "${name}"? This cannot be undone.`;
+    if(!confirm(warning)) return;
+    const result = await apiPost({ action: 'deleteCategory', adminPassword, id });
+    if(result.ok){
+      showToast('Category deleted', 'success');
+      loadCategories();
+      renderList();
+    } else {
+      showToast('Could not delete category', 'error');
+    }
   }
 
   async function loadSettings(){
@@ -305,6 +414,7 @@
       contestants = data.contestants;
       renderStats();
       renderList();
+      renderCategoryList();
     }
   }
 
@@ -330,17 +440,20 @@
 
   function renderList(){
     const list = document.getElementById('contestantList');
-    document.getElementById('countBadge').textContent = '(' + contestants.length + ')';
-    if(contestants.length === 0){
-      list.innerHTML = '<div class="empty-note">No contestants yet. Add your first one above.</div>';
+    const filterId = document.getElementById('filterSelect') ? document.getElementById('filterSelect').value : '';
+    const shown = filterId ? contestants.filter(c => c.categoryId === filterId) : contestants;
+    document.getElementById('countBadge').textContent = '(' + shown.length + ' of ' + contestants.length + ')';
+    if(shown.length === 0){
+      list.innerHTML = '<div class="empty-note">No contestants in this view yet.</div>';
       return;
     }
-    list.innerHTML = contestants.map(c => `
+    list.innerHTML = shown.map(c => `
       <div class="contestant-row">
         <img src="${c.photoUrl || fallbackImg(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
         <div class="contestant-info">
           <div class="name">${escapeHtml(c.name)}</div>
           <div class="bio">${escapeHtml(c.bio || 'No bio')}</div>
+          <span class="cat-badge">${escapeHtml(categoryName(c.categoryId))}</span>
         </div>
         <div class="contestant-votes">${c.votes}<span class="l">votes</span></div>
         <div class="row-actions">
@@ -405,7 +518,9 @@
   async function saveContestant(){
     const name = document.getElementById('nameInput').value.trim();
     const bio = document.getElementById('bioInput').value.trim();
+    const categoryId = document.getElementById('categorySelect').value;
     if(!name){ showToast('Enter a name first', 'error'); return; }
+    if(!categoryId){ showToast('Add a category first, then select it', 'error'); return; }
 
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
@@ -414,12 +529,12 @@
     if(editingId){
       result = await apiPost({
         action: 'editContestant', adminPassword, id: editingId,
-        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId
+        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId, categoryId
       });
     } else {
       result = await apiPost({
         action: 'addContestant', adminPassword,
-        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId
+        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId, categoryId
       });
     }
 
@@ -441,6 +556,7 @@
     document.getElementById('nameInput').value = c.name;
     document.getElementById('bioInput').value = c.bio || '';
     document.getElementById('photoPreview').src = c.photoUrl || fallbackImg(c.name);
+    document.getElementById('categorySelect').value = c.categoryId || '';
     pendingPhoto = { url: c.photoUrl || '', fileId: '' };
     document.getElementById('saveBtn').textContent = 'Save changes';
     document.getElementById('cancelEditBtn').style.display = 'block';
