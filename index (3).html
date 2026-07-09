@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holiday Star Contest — Vote Now</title>
+<script src="https://checkout.flutterwave.com/v3.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14121f;
+    --bg-soft:#1c1930;
+    --card:#221e39;
+    --gold:#ffc145;
+    --coral:#f0523b;
+    --green:#2fbf71;
+    --cream:#fbf7f0;
+    --muted:#9d97b8;
+    --line:rgba(255,255,255,0.08);
+    --radius:18px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(240,82,59,0.18), transparent 45%),
+      radial-gradient(circle at 85% 10%, rgba(255,193,69,0.14), transparent 40%),
+      var(--bg);
+    color:var(--cream);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  .stars{
+    position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden;
+  }
+  .star{
+    position:absolute; color:var(--gold); opacity:0.35; font-size:14px;
+    animation:twinkle 3.5s ease-in-out infinite;
+  }
+  @keyframes twinkle{ 0%,100%{opacity:0.15; transform:scale(0.8);} 50%{opacity:0.5; transform:scale(1.1);} }
+
+  header{
+    position:relative; z-index:1;
+    text-align:center;
+    padding:48px 20px 28px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--gold); margin-bottom:14px; display:block;
+  }
+  h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:clamp(32px, 7vw, 52px);
+    line-height:1.05;
+    color:var(--cream);
+  }
+  h1 span{ color:var(--coral); }
+  .sub{
+    color:var(--muted); font-size:15px; margin-top:14px; max-width:420px;
+    margin-left:auto; margin-right:auto; line-height:1.5;
+  }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    margin-top:20px; padding:8px 18px; border-radius:999px;
+    font-family:'JetBrains Mono', monospace; font-size:13px;
+    background:var(--bg-soft); border:1px solid var(--line);
+  }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); }
+  .status-pill.closed .dot{ background:var(--coral); }
+
+  .podium{
+    position:relative; z-index:1;
+    max-width:720px; margin:0 auto 44px; padding:0 20px;
+    display:flex; align-items:flex-end; justify-content:center; gap:12px;
+  }
+  .pod-slot{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius) var(--radius) 0 0;
+    text-align:center; padding:16px 10px 14px; flex:1; min-width:0;
+  }
+  .pod-slot img{
+    width:56px; height:56px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--gold); margin-bottom:8px;
+  }
+  .pod-slot .pname{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pod-slot .pvotes{ font-family:'JetBrains Mono', monospace; color:var(--gold); font-size:12px; margin-top:2px;}
+  .pod-slot.rank1{ order:2; padding-top:0; }
+  .pod-slot.rank1 .rank-badge{ background:var(--gold); color:#14121f;}
+  .pod-slot.rank2{ order:1; }
+  .pod-slot.rank3{ order:3; }
+  .rank-badge{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:13px;
+    width:24px; height:24px; border-radius:50%; background:var(--bg-soft);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 8px;
+  }
+
+  main{ position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:0 20px; }
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+    gap:20px;
+  }
+
+  .ticket{
+    background:var(--card);
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    overflow:hidden;
+    position:relative;
+    display:flex; flex-direction:column;
+    transition:transform 0.2s ease, border-color 0.2s ease;
+  }
+  .ticket:hover{ transform:translateY(-3px); border-color:rgba(255,193,69,0.35); }
+  .ticket-photo{
+    width:100%; aspect-ratio:1/1; object-fit:cover; background:var(--bg-soft);
+  }
+  .ticket-body{ padding:16px 18px 18px; flex:1; display:flex; flex-direction:column; }
+  .ticket-name{ font-family:'Baloo 2', sans-serif; font-weight:700; font-size:19px; margin-bottom:4px;}
+  .ticket-bio{ color:var(--muted); font-size:13px; line-height:1.4; flex:1; margin-bottom:14px;}
+
+  .perf{
+    height:1px; background-repeat:repeat-x; background-position:0 center;
+    background-image:radial-gradient(circle, var(--line) 2px, transparent 2px);
+    background-size:10px 1px; margin:0 18px;
+  }
+
+  .ticket-footer{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px;
+  }
+  .vote-count{
+    font-family:'JetBrains Mono', monospace; font-weight:700; font-size:20px; color:var(--gold);
+  }
+  .vote-count .label{
+    display:block; font-family:'Work Sans', sans-serif; font-weight:400;
+    font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:1px;
+  }
+  .vote-btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px;
+    background:var(--coral); color:var(--cream); border:none;
+    padding:11px 18px; border-radius:12px; cursor:pointer;
+    transition:transform 0.15s ease, background 0.15s ease;
+  }
+  .vote-btn:hover{ background:#ff6a51; transform:scale(1.04); }
+  .vote-btn:disabled{ opacity:0.5; cursor:not-allowed; transform:none; }
+  .vote-btn .price{ font-family:'JetBrains Mono', monospace; font-size:11px; opacity:0.85; display:block; margin-top:1px; }
+
+  .empty, .loading{
+    text-align:center; padding:60px 20px; color:var(--muted); font-size:14px;
+  }
+  .closed-banner{
+    max-width:1000px; margin:0 auto 24px; padding:16px 20px;
+    background:rgba(240,82,59,0.12); border:1px solid rgba(240,82,59,0.3);
+    border-radius:var(--radius); text-align:center; font-size:14px; color:var(--cream);
+  }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px 22px; font-size:14px; z-index:50; opacity:0; pointer-events:none;
+    transition:all 0.3s ease; max-width:90%; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ border-color:rgba(47,191,113,0.4); }
+  .toast.error{ border-color:rgba(240,82,59,0.4); }
+
+  footer{
+    text-align:center; margin-top:60px; padding:20px; color:var(--muted); font-size:12px;
+    font-family:'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<header>
+  <span class="eyebrow">Vote · Ticket 500 UGX</span>
+  <h1 id="contestTitle">Holiday <span>Star</span> Contest</h1>
+  <p class="sub">Every vote is a 500 UGX ticket. Pick your favourite, pay, and watch the leaderboard move live.</p>
+  <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
+</header>
+
+<div class="podium" id="podium" style="display:none;"></div>
+
+<div class="closed-banner" id="closedBanner" style="display:none;">
+  Voting is currently closed. Check back soon — the contest will reopen shortly.
+</div>
+
+<main>
+  <div class="grid" id="grid">
+    <div class="loading">Loading contestants…</div>
+  </div>
+</main>
+
+<footer>HOLIDAY STAR CONTEST · POWERED BY FLUTTERWAVE</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ====== CONFIGURATION ======
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbznNHQok3fslPpq2L9lUctFTqxvqaJ0CN_YslwyH6WcJBPWTZ0f-OoWYTw-jvaU2jsw/exec";
+  const FLW_PUBLIC_KEY = "FLWPUBK_TEST-05e5322ca98c39fbbf131b2c61ba286a-X";
+  const VOTE_PRICE = 500;
+  // ============================
+
+  let contestants = [];
+  let votingOpen = true;
+
+  function scatterStars(){
+    const container = document.getElementById('stars');
+    const symbols = ['★','✦','✧'];
+    for(let i=0;i<24;i++){
+      const s = document.createElement('div');
+      s.className = 'star';
+      s.textContent = symbols[Math.floor(Math.random()*symbols.length)];
+      s.style.left = Math.random()*100+'%';
+      s.style.top = Math.random()*100+'%';
+      s.style.animationDelay = (Math.random()*3)+'s';
+      s.style.fontSize = (10+Math.random()*10)+'px';
+      container.appendChild(s);
+    }
+  }
+  scatterStars();
+
+  function showToast(msg, type){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || '');
+    setTimeout(()=>{ t.className = 'toast'; }, 4200);
+  }
+
+  async function loadSettings(){
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getSettings');
+      const data = await res.json();
+      if(data.ok){
+        document.getElementById('contestTitle').innerHTML =
+          data.contestTitle.replace(/(\S+)$/, '<span>$1</span>');
+        votingOpen = data.votingOpen;
+        const pill = document.getElementById('statusPill');
+        const text = document.getElementById('statusText');
+        if(votingOpen){
+          text.textContent = 'Voting is open';
+        } else {
+          pill.classList.add('closed');
+          text.textContent = 'Voting is closed';
+          document.getElementById('closedBanner').style.display = 'block';
+        }
+      }
+    }catch(e){
+      document.getElementById('statusText').textContent = 'Could not load status';
+    }
+  }
+
+  async function loadContestants(){
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getContestants');
+      const data = await res.json();
+      if(data.ok){
+        contestants = data.contestants;
+        renderPodium();
+        renderGrid();
+      } else {
+        document.getElementById('grid').innerHTML = '<div class="empty">Could not load contestants right now.</div>';
+      }
+    }catch(e){
+      document.getElementById('grid').innerHTML = '<div class="empty">Could not connect. Check your internet and try again.</div>';
+    }
+  }
+
+  function renderPodium(){
+    const podium = document.getElementById('podium');
+    if(contestants.length < 2){ podium.style.display = 'none'; return; }
+    const top3 = contestants.slice(0,3);
+    const ranks = ['rank1','rank2','rank3'];
+    podium.innerHTML = top3.map((c, i) => `
+      <div class="pod-slot ${ranks[i]}">
+        <div class="rank-badge">${i+1}</div>
+        <img src="${c.photoUrl || fallbackImg(c.name)}" alt="${escapeHtml(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
+        <div class="pname">${escapeHtml(c.name)}</div>
+        <div class="pvotes">${c.votes} votes</div>
+      </div>
+    `).join('');
+    podium.style.display = 'flex';
+  }
+
+  function fallbackImg(name){
+    return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(name) + '&backgroundColor=221e39&textColor=ffc145';
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderGrid(){
+    const grid = document.getElementById('grid');
+    if(contestants.length === 0){
+      grid.innerHTML = '<div class="empty">No contestants yet. Check back soon!</div>';
+      return;
+    }
+    grid.innerHTML = contestants.map(c => `
+      <div class="ticket" data-id="${c.id}">
+        <img class="ticket-photo" src="${c.photoUrl || fallbackImg(c.name)}" alt="${escapeHtml(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
+        <div class="ticket-body">
+          <div class="ticket-name">${escapeHtml(c.name)}</div>
+          <div class="ticket-bio">${escapeHtml(c.bio || '')}</div>
+        </div>
+        <div class="perf"></div>
+        <div class="ticket-footer">
+          <div class="vote-count">${c.votes}<span class="label">votes</span></div>
+          <button class="vote-btn" onclick="startVote('${c.id}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" ${votingOpen ? '' : 'disabled'}>
+            Vote
+            <span class="price">${VOTE_PRICE} UGX</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function startVote(contestantId, contestantName){
+    if(!votingOpen){
+      showToast('Voting is closed right now.', 'error');
+      return;
+    }
+    const txRef = 'VOTE-' + contestantId + '-' + Date.now();
+    FlutterwaveCheckout({
+      public_key: FLW_PUBLIC_KEY,
+      tx_ref: txRef,
+      amount: VOTE_PRICE,
+      currency: 'UGX',
+      payment_options: 'mobilemoneyuganda, card',
+      customer: {
+        email: 'voter' + Date.now() + '@holidaystarcontest.com',
+        name: 'Voter'
+      },
+      customizations: {
+        title: 'Holiday Star Contest',
+        description: 'Vote for ' + contestantName,
+      },
+      callback: function(response){
+        confirmVote(contestantId, response.transaction_id, txRef);
+      },
+      onclose: function(){}
+    });
+  }
+
+  async function confirmVote(contestantId, txId, txRef){
+    showToast('Confirming your vote…');
+    try{
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'castVote',
+          contestantId: contestantId,
+          txId: txId,
+          txRef: txRef
+        })
+      });
+      const data = await res.json();
+      if(data.ok){
+        showToast('Vote counted! Thank you 🌟', 'success');
+        loadContestants();
+      } else {
+        showToast(data.reason || data.error || 'Payment could not be verified.', 'error');
+      }
+    }catch(e){
+      showToast('Vote payment succeeded but confirming it failed. Contact support with your transaction ID: ' + txId, 'error');
+    }
+  }
+
+  loadSettings();
+  loadContestants();
+</script>
+
+</body>
+</html>

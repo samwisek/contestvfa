@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holiday Star Contest — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14121f;
+    --bg-soft:#1c1930;
+    --card:#221e39;
+    --gold:#ffc145;
+    --coral:#f0523b;
+    --green:#2fbf71;
+    --cream:#fbf7f0;
+    --muted:#9d97b8;
+    --line:rgba(255,255,255,0.08);
+    --radius:16px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--cream);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+  }
+  ::selection{ background:var(--gold); color:#14121f; }
+
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .login-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:36px 30px; max-width:340px; width:100%; text-align:center;
+  }
+  .login-card .badge{
+    width:52px; height:52px; border-radius:50%; background:var(--gold);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 18px;
+    font-size:24px;
+  }
+  .login-card h1{ font-family:'Baloo 2', sans-serif; font-size:22px; margin-bottom:6px; }
+  .login-card p{ color:var(--muted); font-size:13px; margin-bottom:22px; }
+  input[type=password], input[type=text], textarea{
+    width:100%; background:var(--bg-soft); border:1px solid var(--line);
+    color:var(--cream); border-radius:10px; padding:12px 14px; font-size:14px;
+    font-family:'Work Sans', sans-serif; outline:none;
+  }
+  input:focus, textarea:focus{ border-color:var(--gold); }
+  .btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px;
+    background:var(--coral); color:var(--cream); border:none;
+    padding:12px 18px; border-radius:10px; cursor:pointer; width:100%;
+    transition:transform 0.15s ease, background 0.15s ease;
+  }
+  .btn:hover{ background:#ff6a51; }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn.secondary{ background:var(--bg-soft); border:1px solid var(--line); }
+  .btn.secondary:hover{ background:#28243f; }
+  .btn.small{ width:auto; padding:9px 14px; font-size:13px; }
+  .login-card input{ margin-bottom:12px; }
+  .login-error{ color:var(--coral); font-size:13px; margin-top:10px; min-height:16px; }
+
+  #dashboard{ display:none; }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 24px; border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:var(--bg); z-index:10;
+    flex-wrap:wrap; gap:12px;
+  }
+  header h1{ font-family:'Baloo 2', sans-serif; font-size:20px; }
+  header h1 span{ color:var(--gold); }
+  .header-actions{ display:flex; gap:10px; align-items:center; }
+
+  main{ max-width:1000px; margin:0 auto; padding:28px 24px 60px; }
+
+  .stats-row{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
+    gap:14px; margin-bottom:28px;
+  }
+  .stat-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px 20px;
+  }
+  .stat-card .val{ font-family:'JetBrains Mono', monospace; font-size:26px; color:var(--gold); font-weight:700;}
+  .stat-card .lbl{ font-size:12px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:0.06em;}
+
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px; margin-bottom:24px;
+  }
+  .panel h2{ font-family:'Baloo 2', sans-serif; font-size:16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;}
+
+  .settings-row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .toggle{
+    display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:999px;
+    padding:8px 16px; font-size:13px; font-family:'JetBrains Mono', monospace;
+  }
+  .toggle .dot{ width:10px; height:10px; border-radius:50%; background:var(--muted); transition:background 0.2s; }
+  .toggle.on .dot{ background:var(--green); }
+  .toggle.off .dot{ background:var(--coral); }
+
+  .title-edit{ display:flex; gap:10px; flex:1; min-width:200px; }
+  .title-edit input{ flex:1; }
+
+  .photo-picker{
+    display:flex; align-items:center; gap:14px; margin-bottom:14px;
+  }
+  .photo-preview{
+    width:72px; height:72px; border-radius:12px; object-fit:cover;
+    background:var(--bg-soft); border:1px dashed var(--line); flex-shrink:0;
+  }
+  .photo-pick-btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:13px;
+    background:var(--bg-soft); border:1px solid var(--line); color:var(--cream);
+    padding:10px 16px; border-radius:10px; cursor:pointer;
+  }
+  .photo-pick-btn:hover{ border-color:var(--gold); }
+  input[type=file]{ display:none; }
+
+  .form-grid{ display:grid; gap:12px; margin-bottom:14px; }
+  .form-actions{ display:flex; gap:10px; }
+  .form-actions .btn{ width:auto; flex:1; }
+
+  .contestant-row{
+    display:flex; align-items:center; gap:14px; padding:14px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .contestant-row:last-child{ border-bottom:none; }
+  .contestant-row img{
+    width:52px; height:52px; border-radius:10px; object-fit:cover; background:var(--bg-soft);
+    flex-shrink:0;
+  }
+  .contestant-info{ flex:1; min-width:0; }
+  .contestant-info .name{ font-weight:600; font-size:14px; }
+  .contestant-info .bio{ font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .contestant-votes{
+    font-family:'JetBrains Mono', monospace; color:var(--gold); font-weight:700; font-size:15px;
+    text-align:right; min-width:60px;
+  }
+  .contestant-votes .l{ display:block; font-size:9px; color:var(--muted); font-weight:400; font-family:'Work Sans', sans-serif; text-transform:uppercase;}
+  .row-actions{ display:flex; gap:6px; }
+  .icon-btn{
+    background:var(--bg-soft); border:1px solid var(--line); color:var(--cream);
+    width:34px; height:34px; border-radius:8px; cursor:pointer; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{ border-color:var(--gold); }
+  .icon-btn.danger:hover{ border-color:var(--coral); color:var(--coral); }
+
+  .empty-note{ color:var(--muted); font-size:13px; text-align:center; padding:20px; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px 22px; font-size:14px; z-index:50; opacity:0; pointer-events:none;
+    transition:all 0.3s ease; max-width:90%; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success{ border-color:rgba(47,191,113,0.4); }
+  .toast.error{ border-color:rgba(240,82,59,0.4); }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="badge">🔒</div>
+    <h1>Admin Access</h1>
+    <p>Holiday Star Contest dashboard</p>
+    <input type="password" id="passwordInput" placeholder="Admin password" onkeydown="if(event.key==='Enter') login()">
+    <button class="btn" onclick="login()">Log in</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header>
+    <h1>Holiday Star <span>Admin</span></h1>
+    <div class="header-actions">
+      <button class="btn secondary small" onclick="exportVotesCsv()">Export votes CSV</button>
+      <button class="btn secondary small" onclick="logout()">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="panel">
+      <h2>Contest settings</h2>
+      <div class="settings-row">
+        <div class="toggle" id="votingToggle" onclick="toggleVoting()">
+          <span class="dot"></span><span id="votingToggleLabel">Loading…</span>
+        </div>
+        <div class="title-edit">
+          <input type="text" id="titleInput" placeholder="Contest title">
+          <button class="btn secondary small" onclick="saveTitle()">Save title</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 id="formHeading">Add contestant</h2>
+      <div class="photo-picker">
+        <img id="photoPreview" class="photo-preview" src="" alt="">
+        <div>
+          <button class="photo-pick-btn" onclick="document.getElementById('fileInput').click()">📷 Choose photo</button>
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+          <div id="uploadStatus" style="font-size:12px; color:var(--muted); margin-top:6px;"></div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <input type="text" id="nameInput" placeholder="Contestant name">
+        <textarea id="bioInput" placeholder="Short bio / class / age (optional)" rows="2"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn" id="saveBtn" onclick="saveContestant()">Add contestant</button>
+        <button class="btn secondary" id="cancelEditBtn" style="display:none;" onclick="cancelEdit()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Contestants <span id="countBadge" style="color:var(--muted); font-weight:400; font-size:13px;"></span></h2>
+      <div id="contestantList"><div class="empty-note">Loading…</div></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbznNHQok3fslPpq2L9lUctFTqxvqaJ0CN_YslwyH6WcJBPWTZ0f-OoWYTw-jvaU2jsw/exec";
+  const VOTE_PRICE = 500;
+
+  let adminPassword = '';
+  let contestants = [];
+  let votingOpen = true;
+  let editingId = null;
+  let pendingPhoto = { url: '', fileId: '' };
+
+  function showToast(msg, type){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || '');
+    setTimeout(()=>{ t.className = 'toast'; }, 4000);
+  }
+
+  function fallbackImg(name){
+    return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(name || 'star') + '&backgroundColor=221e39&textColor=ffc145';
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  async function apiPost(body){
+    const res = await fetch(BACKEND_URL, { method: 'POST', body: JSON.stringify(body) });
+    return res.json();
+  }
+
+  async function login(){
+    const pw = document.getElementById('passwordInput').value.trim();
+    if(!pw){ return; }
+    document.getElementById('loginError').textContent = 'Checking…';
+    const result = await apiPost({ action: 'getAllVotes', adminPassword: pw });
+    if(result.ok){
+      adminPassword = pw;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      loadAll();
+    } else {
+      document.getElementById('loginError').textContent = 'Wrong password. Try again.';
+    }
+  }
+
+  function logout(){
+    adminPassword = '';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('passwordInput').value = '';
+  }
+
+  async function loadAll(){
+    await loadSettings();
+    await loadContestants();
+  }
+
+  async function loadSettings(){
+    const res = await fetch(BACKEND_URL + '?action=getSettings');
+    const data = await res.json();
+    if(data.ok){
+      votingOpen = data.votingOpen;
+      document.getElementById('titleInput').value = data.contestTitle;
+      renderVotingToggle();
+    }
+  }
+
+  async function loadContestants(){
+    const res = await fetch(BACKEND_URL + '?action=getContestants');
+    const data = await res.json();
+    if(data.ok){
+      contestants = data.contestants;
+      renderStats();
+      renderList();
+    }
+  }
+
+  function renderStats(){
+    const totalVotes = contestants.reduce((sum, c) => sum + c.votes, 0);
+    const revenue = totalVotes * VOTE_PRICE;
+    const leader = contestants[0];
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-card"><div class="val">${contestants.length}</div><div class="lbl">Contestants</div></div>
+      <div class="stat-card"><div class="val">${totalVotes}</div><div class="lbl">Total votes</div></div>
+      <div class="stat-card"><div class="val">${revenue.toLocaleString()}</div><div class="lbl">Revenue (UGX)</div></div>
+      <div class="stat-card"><div class="val" style="font-size:16px;">${leader ? escapeHtml(leader.name) : '—'}</div><div class="lbl">Current leader</div></div>
+    `;
+  }
+
+  function renderVotingToggle(){
+    const toggle = document.getElementById('votingToggle');
+    const label = document.getElementById('votingToggleLabel');
+    toggle.classList.toggle('on', votingOpen);
+    toggle.classList.toggle('off', !votingOpen);
+    label.textContent = votingOpen ? 'Voting is open — tap to close' : 'Voting is closed — tap to open';
+  }
+
+  function renderList(){
+    const list = document.getElementById('contestantList');
+    document.getElementById('countBadge').textContent = '(' + contestants.length + ')';
+    if(contestants.length === 0){
+      list.innerHTML = '<div class="empty-note">No contestants yet. Add your first one above.</div>';
+      return;
+    }
+    list.innerHTML = contestants.map(c => `
+      <div class="contestant-row">
+        <img src="${c.photoUrl || fallbackImg(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
+        <div class="contestant-info">
+          <div class="name">${escapeHtml(c.name)}</div>
+          <div class="bio">${escapeHtml(c.bio || 'No bio')}</div>
+        </div>
+        <div class="contestant-votes">${c.votes}<span class="l">votes</span></div>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="editContestant('${c.id}')" title="Edit">✏️</button>
+          <button class="icon-btn danger" onclick="deleteContestant('${c.id}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function toggleVoting(){
+    votingOpen = !votingOpen;
+    renderVotingToggle();
+    const result = await apiPost({ action: 'toggleVoting', adminPassword, open: votingOpen });
+    if(result.ok){
+      showToast(votingOpen ? 'Voting opened' : 'Voting closed', 'success');
+    } else {
+      votingOpen = !votingOpen;
+      renderVotingToggle();
+      showToast('Could not update voting status', 'error');
+    }
+  }
+
+  async function saveTitle(){
+    const title = document.getElementById('titleInput').value.trim();
+    if(!title) return;
+    const result = await apiPost({ action: 'setContestTitle', adminPassword, title });
+    showToast(result.ok ? 'Title saved' : 'Could not save title', result.ok ? 'success' : 'error');
+  }
+
+  function handleFileSelect(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('uploadStatus');
+    const preview = document.getElementById('photoPreview');
+    preview.src = URL.createObjectURL(file);
+    statusEl.textContent = 'Uploading…';
+    statusEl.style.color = 'var(--muted)';
+
+    const reader = new FileReader();
+    reader.onload = async function(){
+      const base64 = reader.result.split(',')[1];
+      const result = await apiPost({
+        action: 'uploadImage',
+        adminPassword,
+        imageBase64: base64,
+        fileName: file.name,
+        mimeType: file.type
+      });
+      if(result.ok){
+        pendingPhoto = { url: result.url, fileId: result.fileId };
+        statusEl.textContent = 'Photo uploaded ✓';
+        statusEl.style.color = 'var(--green)';
+      } else {
+        statusEl.textContent = 'Upload failed — try again';
+        statusEl.style.color = 'var(--coral)';
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveContestant(){
+    const name = document.getElementById('nameInput').value.trim();
+    const bio = document.getElementById('bioInput').value.trim();
+    if(!name){ showToast('Enter a name first', 'error'); return; }
+
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+
+    let result;
+    if(editingId){
+      result = await apiPost({
+        action: 'editContestant', adminPassword, id: editingId,
+        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId
+      });
+    } else {
+      result = await apiPost({
+        action: 'addContestant', adminPassword,
+        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId
+      });
+    }
+
+    btn.disabled = false;
+    if(result.ok){
+      showToast(editingId ? 'Contestant updated' : 'Contestant added', 'success');
+      resetForm();
+      loadContestants();
+    } else {
+      showToast('Could not save contestant', 'error');
+    }
+  }
+
+  function editContestant(id){
+    const c = contestants.find(x => x.id === id);
+    if(!c) return;
+    editingId = id;
+    document.getElementById('formHeading').textContent = 'Edit contestant';
+    document.getElementById('nameInput').value = c.name;
+    document.getElementById('bioInput').value = c.bio || '';
+    document.getElementById('photoPreview').src = c.photoUrl || fallbackImg(c.name);
+    pendingPhoto = { url: c.photoUrl || '', fileId: '' };
+    document.getElementById('saveBtn').textContent = 'Save changes';
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit(){ resetForm(); }
+
+  function resetForm(){
+    editingId = null;
+    pendingPhoto = { url: '', fileId: '' };
+    document.getElementById('formHeading').textContent = 'Add contestant';
+    document.getElementById('nameInput').value = '';
+    document.getElementById('bioInput').value = '';
+    document.getElementById('photoPreview').src = '';
+    document.getElementById('uploadStatus').textContent = '';
+    document.getElementById('saveBtn').textContent = 'Add contestant';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+  }
+
+  async function deleteContestant(id, name){
+    if(!confirm('Delete ' + name + '? This cannot be undone.')) return;
+    const result = await apiPost({ action: 'deleteContestant', adminPassword, id });
+    if(result.ok){
+      showToast('Contestant deleted', 'success');
+      loadContestants();
+    } else {
+      showToast('Could not delete contestant', 'error');
+    }
+  }
+
+  async function exportVotesCsv(){
+    const result = await apiPost({ action: 'getAllVotes', adminPassword });
+    if(!result.ok){ showToast('Could not fetch votes', 'error'); return; }
+    const rows = result.rows;
+    const csv = rows.map(row =>
+      row.map(cell => '"' + String(cell).replace(/"/g,'""') + '"').join(',')
+    ).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'votes-export-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+
+</body>
+</html>
