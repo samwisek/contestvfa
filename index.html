@@ -71,6 +71,20 @@
   .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); }
   .status-pill.closed .dot{ background:var(--coral); }
 
+  .cat-tabs{
+    position:relative; z-index:1;
+    max-width:900px; margin:0 auto 34px; padding:0 20px;
+    display:flex; gap:10px; overflow-x:auto; justify-content:center; flex-wrap:wrap;
+  }
+  .cat-tab{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px;
+    background:var(--card); border:1px solid var(--line); color:var(--muted);
+    padding:10px 20px; border-radius:999px; cursor:pointer; white-space:nowrap;
+    transition:all 0.15s ease;
+  }
+  .cat-tab.active{ background:var(--gold); color:#14121f; border-color:var(--gold); }
+  .cat-tab:hover:not(.active){ border-color:var(--gold); color:var(--cream); }
+
   .podium{
     position:relative; z-index:1;
     max-width:720px; margin:0 auto 44px; padding:0 20px;
@@ -183,6 +197,8 @@
   <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
 </header>
 
+<div class="cat-tabs" id="catTabs"></div>
+
 <div class="podium" id="podium" style="display:none;"></div>
 
 <div class="closed-banner" id="closedBanner" style="display:none;">
@@ -207,6 +223,8 @@
   // ============================
 
   let contestants = [];
+  let categories = [];
+  let activeCategory = '';
   let votingOpen = true;
 
   function scatterStars(){
@@ -255,6 +273,41 @@
     }
   }
 
+  async function loadCategories(){
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getCategories');
+      const data = await res.json();
+      if(data.ok){
+        categories = data.categories;
+        if(categories.length && !activeCategory) activeCategory = categories[0].id;
+        renderCatTabs();
+        renderPodium();
+        renderGrid();
+      }
+    }catch(e){}
+  }
+
+  function renderCatTabs(){
+    const tabs = document.getElementById('catTabs');
+    if(categories.length <= 1){ tabs.style.display = 'none'; return; }
+    tabs.style.display = 'flex';
+    tabs.innerHTML = categories.map(cat => `
+      <button class="cat-tab ${cat.id === activeCategory ? 'active' : ''}" onclick="selectCategory('${cat.id}')">${escapeHtml(cat.name)}</button>
+    `).join('');
+  }
+
+  function selectCategory(id){
+    activeCategory = id;
+    renderCatTabs();
+    renderPodium();
+    renderGrid();
+  }
+
+  function contestantsInView(){
+    if(!activeCategory) return contestants;
+    return contestants.filter(c => c.categoryId === activeCategory);
+  }
+
   async function loadContestants(){
     try{
       const res = await fetch(BACKEND_URL + '?action=getContestants');
@@ -273,8 +326,9 @@
 
   function renderPodium(){
     const podium = document.getElementById('podium');
-    if(contestants.length < 2){ podium.style.display = 'none'; return; }
-    const top3 = contestants.slice(0,3);
+    const view = contestantsInView();
+    if(view.length < 2){ podium.style.display = 'none'; return; }
+    const top3 = view.slice(0,3);
     const ranks = ['rank1','rank2','rank3'];
     podium.innerHTML = top3.map((c, i) => `
       <div class="pod-slot ${ranks[i]}">
@@ -299,11 +353,12 @@
 
   function renderGrid(){
     const grid = document.getElementById('grid');
-    if(contestants.length === 0){
-      grid.innerHTML = '<div class="empty">No contestants yet. Check back soon!</div>';
+    const view = contestantsInView();
+    if(view.length === 0){
+      grid.innerHTML = '<div class="empty">No contestants in this category yet. Check back soon!</div>';
       return;
     }
-    grid.innerHTML = contestants.map(c => `
+    grid.innerHTML = view.map(c => `
       <div class="ticket" data-id="${c.id}">
         <img class="ticket-photo" src="${c.photoUrl || fallbackImg(c.name)}" alt="${escapeHtml(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
         <div class="ticket-body">
@@ -374,6 +429,7 @@
   }
 
   loadSettings();
+  loadCategories();
   loadContestants();
 </script>
 
