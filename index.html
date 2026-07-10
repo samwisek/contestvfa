@@ -164,6 +164,18 @@
   .empty, .loading{
     text-align:center; padding:60px 20px; color:var(--muted); font-size:14px;
   }
+  .pass-banner{
+    max-width:1000px; margin:0 auto 24px; padding:14px 20px;
+    background:rgba(47,191,113,0.1); border:1px solid rgba(47,191,113,0.3);
+    border-radius:var(--radius); text-align:center; font-size:13px; color:var(--cream);
+  }
+  .voted-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(47,191,113,0.15); color:var(--green);
+    font-family:'JetBrains Mono', monospace; font-size:11px;
+    padding:6px 12px; border-radius:999px;
+  }
+
   .closed-banner{
     max-width:1000px; margin:0 auto 24px; padding:16px 20px;
     background:rgba(240,82,59,0.12); border:1px solid rgba(240,82,59,0.3);
@@ -205,6 +217,8 @@
   Voting is currently closed. Check back soon — the contest will reopen shortly.
 </div>
 
+<div class="pass-banner" id="passBanner" style="display:none;"></div>
+
 <main>
   <div class="grid" id="grid">
     <div class="loading">Loading contestants…</div>
@@ -226,6 +240,18 @@
   let categories = [];
   let activeCategory = '';
   let votingOpen = true;
+  let passId = localStorage.getItem('votingPassId') || '';
+  let votedCategories = [];
+
+  function getDeviceId(){
+    let id = localStorage.getItem('deviceId');
+    if(!id){
+      id = 'D' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('deviceId', id);
+    }
+    return id;
+  }
+  const deviceId = getDeviceId();
 
   function scatterStars(){
     const container = document.getElementById('stars');
@@ -271,6 +297,35 @@
     }catch(e){
       document.getElementById('statusText').textContent = 'Could not load status';
     }
+  }
+
+  function renderPassBanner(){
+    const banner = document.getElementById('passBanner');
+    if(passId){
+      banner.style.display = 'block';
+      banner.innerHTML = 'You have an active voting pass — you can vote once in each category. Voted so far: ' +
+        (votedCategories.length ? votedCategories.map(id => escapeHtml(categoryNameById(id))).join(', ') : 'none yet');
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function categoryNameById(id){
+    const cat = categories.find(c => c.id === id);
+    return cat ? cat.name : 'a category';
+  }
+
+  async function loadVotedCategories(){
+    if(!passId) return;
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getVotedCategories&passId=' + encodeURIComponent(passId));
+      const data = await res.json();
+      if(data.ok){
+        votedCategories = data.categories;
+        renderPassBanner();
+        renderGrid();
+      }
+    }catch(e){}
   }
 
   async function loadCategories(){
@@ -358,6 +413,7 @@
       grid.innerHTML = '<div class="empty">No contestants in this category yet. Check back soon!</div>';
       return;
     }
+    const categoryVoted = activeCategory && votedCategories.indexOf(activeCategory) !== -1;
     grid.innerHTML = view.map(c => `
       <div class="ticket" data-id="${c.id}">
         <img class="ticket-photo" src="${c.photoUrl || fallbackImg(c.name)}" alt="${escapeHtml(c.name)}" onerror="this.src=fallbackImg('${escapeHtml(c.name)}')">
@@ -368,21 +424,36 @@
         <div class="perf"></div>
         <div class="ticket-footer">
           <div class="vote-count">${c.votes}<span class="label">votes</span></div>
-          <button class="vote-btn" onclick="startVote('${c.id}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" ${votingOpen ? '' : 'disabled'}>
-            Vote
-            <span class="price">${VOTE_PRICE} UGX</span>
-          </button>
+          ${categoryVoted
+            ? '<span class="voted-badge">✓ Voted here</span>'
+            : `<button class="vote-btn" onclick="startVote('${c.id}', '${c.categoryId}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" ${votingOpen ? '' : 'disabled'}>
+                ${passId ? 'Vote' : 'Vote'}
+                <span class="price">${passId ? 'Free with pass' : VOTE_PRICE + ' UGX'}</span>
+              </button>`
+          }
         </div>
       </div>
     `).join('');
   }
 
-  function startVote(contestantId, contestantName){
+  function startVote(contestantId, categoryId, contestantName){
     if(!votingOpen){
       showToast('Voting is closed right now.', 'error');
       return;
     }
-    const txRef = 'VOTE-' + contestantId + '-' + Date.now();
+    if(votedCategories.indexOf(categoryId) !== -1){
+      showToast('You already voted in this category.', 'error');
+      return;
+    }
+
+    if(passId){
+      // Already have an active pass — just spend it on this category, no payment needed
+      castVoteWithPass(contestantId, categoryId);
+      return;
+    }
+
+    // No pass yet — pay 500 UGX once to get one
+    const txRef = 'PASS-' + deviceId + '-' + Date.now();
     FlutterwaveCheckout({
       public_key: FLW_PUBLIC_KEY,
       tx_ref: txRef,
@@ -394,43 +465,61 @@
         name: 'Voter'
       },
       customizations: {
-        title: 'Holiday Star Contest',
-        description: 'Vote for ' + contestantName,
+        title: 'Holiday Star Contest — Voting Pass',
+        description: 'One-time pass: vote once in every category',
       },
       callback: function(response){
-        confirmVote(contestantId, response.transaction_id, txRef);
+        createPassThenVote(response.transaction_id, txRef, contestantId, categoryId);
       },
       onclose: function(){}
     });
   }
 
-  async function confirmVote(contestantId, txId, txRef){
-    showToast('Confirming your vote…');
+  async function createPassThenVote(txId, txRef, contestantId, categoryId){
+    showToast('Confirming your payment…');
     try{
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        body: JSON.stringify({
-          action: 'castVote',
-          contestantId: contestantId,
-          txId: txId,
-          txRef: txRef
-        })
+        body: JSON.stringify({ action: 'createPass', deviceId, txId, txRef })
+      });
+      const data = await res.json();
+      if(data.ok){
+        passId = data.passId;
+        localStorage.setItem('votingPassId', passId);
+        showToast('Voting pass unlocked! Casting your vote…', 'success');
+        castVoteWithPass(contestantId, categoryId);
+      } else {
+        showToast(data.reason || 'Could not verify payment.', 'error');
+      }
+    }catch(e){
+      showToast('Payment succeeded but confirming it failed. Contact support with your transaction ID: ' + txId, 'error');
+    }
+  }
+
+  async function castVoteWithPass(contestantId, categoryId){
+    try{
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'castVote', passId, deviceId, categoryId, contestantId })
       });
       const data = await res.json();
       if(data.ok){
         showToast('Vote counted! Thank you 🌟', 'success');
+        votedCategories.push(categoryId);
+        renderPassBanner();
         loadContestants();
       } else {
-        showToast(data.reason || data.error || 'Payment could not be verified.', 'error');
+        showToast(data.reason || data.error || 'Could not cast vote.', 'error');
       }
     }catch(e){
-      showToast('Vote payment succeeded but confirming it failed. Contact support with your transaction ID: ' + txId, 'error');
+      showToast('Could not reach the server. Please try again.', 'error');
     }
   }
 
   loadSettings();
   loadCategories();
   loadContestants();
+  loadVotedCategories();
 </script>
 
 </body>
