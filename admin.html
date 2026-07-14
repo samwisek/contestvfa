@@ -418,8 +418,7 @@
   }
 
   async function loadContestants(){
-    const res = await fetch(BACKEND_URL + '?action=getContestants');
-    const data = await res.json();
+    const data = await apiPost({ action: 'getContestantsAdmin', adminPassword });
     if(data.ok){
       contestants = data.contestants;
       renderStats();
