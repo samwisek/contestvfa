@@ -454,12 +454,14 @@
 
     // No pass yet — pay 500 UGX once to get one
     const txRef = 'PASS-' + deviceId + '-' + Date.now();
+    localStorage.setItem('pendingVote', JSON.stringify({ contestantId, categoryId, txRef }));
     FlutterwaveCheckout({
       public_key: FLW_PUBLIC_KEY,
       tx_ref: txRef,
       amount: VOTE_PRICE,
       currency: 'UGX',
       payment_options: 'mobilemoneyuganda, card',
+      redirect_url: window.location.origin + window.location.pathname,
       customer: {
         email: 'voter' + Date.now() + '@holidaystarcontest.com',
         name: 'Voter'
@@ -469,6 +471,7 @@
         description: 'One-time pass: vote once in every category',
       },
       callback: function(response){
+        localStorage.removeItem('pendingVote');
         createPassThenVote(response.transaction_id, txRef, contestantId, categoryId);
       },
       onclose: function(){}
@@ -516,10 +519,39 @@
     }
   }
 
+  function checkRedirectReturn(){
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const txRef = params.get('tx_ref');
+    const transactionId = params.get('transaction_id');
+    if(!status || !txRef){ return; }
+
+    // Clean the URL so refreshing doesn't re-trigger this
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    const pendingRaw = localStorage.getItem('pendingVote');
+    const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
+
+    if(status !== 'successful' && status !== 'completed'){
+      showToast('Payment was not completed.', 'error');
+      localStorage.removeItem('pendingVote');
+      return;
+    }
+
+    if(!pending || pending.txRef !== txRef){
+      showToast('Payment completed, but could not match it to your vote. Contact support with reference: ' + txRef, 'error');
+      return;
+    }
+
+    localStorage.removeItem('pendingVote');
+    createPassThenVote(transactionId, txRef, pending.contestantId, pending.categoryId);
+  }
+
   loadSettings();
   loadCategories();
   loadContestants();
   loadVotedCategories();
+  checkRedirectReturn();
 </script>
 
 </body>
