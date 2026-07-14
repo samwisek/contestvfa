@@ -274,6 +274,7 @@
   let votingOpen = true;
   let editingId = null;
   let pendingPhoto = { url: '', fileId: '' };
+  let totalPasses = 0;
 
   function showToast(msg, type){
     const t = document.getElementById('toast');
@@ -322,7 +323,16 @@
   async function loadAll(){
     await loadSettings();
     await loadCategories();
+    await loadStats();
     await loadContestants();
+  }
+
+  async function loadStats(){
+    const res = await fetch(BACKEND_URL + '?action=getStats');
+    const data = await res.json();
+    if(data.ok){
+      totalPasses = data.totalPasses;
+    }
   }
 
   async function loadCategories(){
@@ -420,11 +430,12 @@
 
   function renderStats(){
     const totalVotes = contestants.reduce((sum, c) => sum + c.votes, 0);
-    const revenue = totalVotes * VOTE_PRICE;
+    const revenue = totalPasses * VOTE_PRICE;
     const leader = contestants[0];
     document.getElementById('statsRow').innerHTML = `
       <div class="stat-card"><div class="val">${contestants.length}</div><div class="lbl">Contestants</div></div>
-      <div class="stat-card"><div class="val">${totalVotes}</div><div class="lbl">Total votes</div></div>
+      <div class="stat-card"><div class="val">${totalPasses}</div><div class="lbl">Voting passes sold</div></div>
+      <div class="stat-card"><div class="val">${totalVotes}</div><div class="lbl">Total votes cast</div></div>
       <div class="stat-card"><div class="val">${revenue.toLocaleString()}</div><div class="lbl">Revenue (UGX)</div></div>
       <div class="stat-card"><div class="val" style="font-size:16px;">${leader ? escapeHtml(leader.name) : '—'}</div><div class="lbl">Current leader</div></div>
     `;
