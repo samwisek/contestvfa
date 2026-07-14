@@ -74,11 +74,13 @@
   .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
   .status-pill.closed .dot{ background:var(--coral); }
 
-  .cat-tabs{
+  .cat-tabs-wrap{
     position:relative; z-index:1;
     max-width:900px; margin:0 auto 28px;
+  }
+  .cat-tabs{
     display:flex; gap:8px; overflow-x:auto;
-    padding:4px 20px 10px;
+    padding:4px 36px 10px;
     scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;
@@ -92,6 +94,21 @@
   }
   .cat-tab.active{ background:var(--gold); color:#14121f; border-color:var(--gold); }
   .cat-tab:hover:not(.active){ border-color:var(--gold); color:var(--cream); }
+  .cat-fade{
+    position:absolute; top:0; bottom:10px; width:44px; pointer-events:none;
+    z-index:2; transition:opacity 0.15s ease;
+  }
+  .cat-fade.left{ left:0; background:linear-gradient(to right, var(--bg) 20%, transparent); }
+  .cat-fade.right{ right:0; background:linear-gradient(to left, var(--bg) 20%, transparent); }
+  .cat-arrow{
+    position:absolute; top:0; bottom:10px; width:28px; z-index:3;
+    display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--cream); cursor:pointer;
+    font-family:'Baloo 2', sans-serif; font-size:18px; font-weight:700;
+  }
+  .cat-arrow.left{ left:0; justify-content:flex-start; }
+  .cat-arrow.right{ right:0; justify-content:flex-end; }
+  .cat-arrow[hidden]{ display:none; }
 
   .podium{
     position:relative; z-index:1;
@@ -237,7 +254,13 @@
   <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
 </header>
 
-<div class="cat-tabs" id="catTabs"></div>
+<div class="cat-tabs-wrap" id="catTabsWrap" style="display:none;">
+  <div class="cat-tabs" id="catTabs" onscroll="updateCatArrows()"></div>
+  <div class="cat-fade left" id="catFadeLeft"></div>
+  <div class="cat-fade right" id="catFadeRight"></div>
+  <button class="cat-arrow left" id="catArrowLeft" onclick="scrollCatTabs(-1)" hidden aria-label="Scroll categories left">‹</button>
+  <button class="cat-arrow right" id="catArrowRight" onclick="scrollCatTabs(1)" hidden aria-label="Scroll categories right">›</button>
+</div>
 
 <div class="podium" id="podium" style="display:none;"></div>
 
@@ -371,17 +394,43 @@
   }
 
   function renderCatTabs(){
+    const wrap = document.getElementById('catTabsWrap');
     const tabs = document.getElementById('catTabs');
-    if(categories.length <= 1){ tabs.style.display = 'none'; return; }
-    tabs.style.display = 'flex';
+    if(categories.length <= 1){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
     tabs.innerHTML = categories.map(cat => `
       <button class="cat-tab ${cat.id === activeCategory ? 'active' : ''}" onclick="selectCategory('${cat.id}')">${escapeHtml(cat.name)}</button>
     `).join('');
+    updateCatArrows();
   }
+
+  function scrollCatTabs(direction){
+    const tabs = document.getElementById('catTabs');
+    tabs.scrollBy({ left: direction * 180, behavior: 'smooth' });
+  }
+
+  function updateCatArrows(){
+    const tabs = document.getElementById('catTabs');
+    const leftArrow = document.getElementById('catArrowLeft');
+    const rightArrow = document.getElementById('catArrowRight');
+    const leftFade = document.getElementById('catFadeLeft');
+    const rightFade = document.getElementById('catFadeRight');
+    if(!tabs) return;
+    const canScrollLeft = tabs.scrollLeft > 4;
+    const canScrollRight = tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 4;
+    leftArrow.hidden = !canScrollLeft;
+    rightArrow.hidden = !canScrollRight;
+    leftFade.style.opacity = canScrollLeft ? '1' : '0';
+    rightFade.style.opacity = canScrollRight ? '1' : '0';
+  }
+
+  window.addEventListener('resize', updateCatArrows);
 
   function selectCategory(id){
     activeCategory = id;
     renderCatTabs();
+    const activeTab = document.querySelector('.cat-tab.active');
+    if(activeTab) activeTab.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     renderPodium();
     renderGrid();
   }
