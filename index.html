@@ -365,7 +365,8 @@
 
   async function loadContestants(){
     try{
-      const res = await fetch(BACKEND_URL + '?action=getContestants');
+      const url = BACKEND_URL + '?action=getContestants' + (passId ? '&passId=' + encodeURIComponent(passId) : '');
+      const res = await fetch(url);
       const data = await res.json();
       if(data.ok){
         contestants = data.contestants;
@@ -382,7 +383,8 @@
   function renderPodium(){
     const podium = document.getElementById('podium');
     const view = contestantsInView();
-    if(view.length < 2){ podium.style.display = 'none'; return; }
+    const locked = view.length > 0 && view[0].votes === null;
+    if(view.length < 2 || locked){ podium.style.display = 'none'; return; }
     const top3 = view.slice(0,3);
     const ranks = ['rank1','rank2','rank3'];
     podium.innerHTML = top3.map((c, i) => `
@@ -408,10 +410,14 @@
 
   function renderGrid(){
     const grid = document.getElementById('grid');
-    const view = contestantsInView();
+    let view = contestantsInView();
     if(view.length === 0){
       grid.innerHTML = '<div class="empty">No contestants in this category yet. Check back soon!</div>';
       return;
+    }
+    const locked = view[0].votes === null;
+    if(locked){
+      view = view.slice().sort((a, b) => a.name.localeCompare(b.name));
     }
     const categoryVoted = activeCategory && votedCategories.indexOf(activeCategory) !== -1;
     grid.innerHTML = view.map(c => `
@@ -423,11 +429,11 @@
         </div>
         <div class="perf"></div>
         <div class="ticket-footer">
-          <div class="vote-count">${c.votes}<span class="label">votes</span></div>
+          <div class="vote-count">${c.votes === null ? '🔒' : c.votes}<span class="label">${c.votes === null ? 'vote to see' : 'votes'}</span></div>
           ${categoryVoted
             ? '<span class="voted-badge">✓ Voted here</span>'
             : `<button class="vote-btn" onclick="startVote('${c.id}', '${c.categoryId}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" ${votingOpen ? '' : 'disabled'}>
-                ${passId ? 'Vote' : 'Vote'}
+                Vote
                 <span class="price">${passId ? 'Free with pass' : VOTE_PRICE + ' UGX'}</span>
               </button>`
           }
