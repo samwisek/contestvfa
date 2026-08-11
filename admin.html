@@ -230,6 +230,17 @@
     </div>
 
     <div class="panel">
+      <h2>Voting code</h2>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">
+        Everyone uses this same code to unlock free voting. Share it however you like — announce it, print it, post it.
+      </p>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="votingCodeInput" placeholder="e.g. STAR2026" style="text-transform:uppercase; font-family:'JetBrains Mono', monospace;">
+        <button class="btn small" style="width:auto; flex-shrink:0;" onclick="saveVotingCode()">Save code</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>Contest settings</h2>
       <div class="settings-row">
         <div class="toggle" id="votingToggle" onclick="toggleVoting()">
@@ -277,7 +288,6 @@
 
 <script>
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbznNHQok3fslPpq2L9lUctFTqxvqaJ0CN_YslwyH6WcJBPWTZ0f-OoWYTw-jvaU2jsw/exec";
-  const VOTE_PRICE = 500;
 
   let adminPassword = '';
   let contestants = [];
@@ -335,7 +345,22 @@
     await loadSettings();
     await loadCategories();
     await loadStats();
+    await loadVotingCode();
     await loadContestants();
+  }
+
+  async function loadVotingCode(){
+    const result = await apiPost({ action: 'getVotingCode', adminPassword });
+    if(result.ok){
+      document.getElementById('votingCodeInput').value = result.code;
+    }
+  }
+
+  async function saveVotingCode(){
+    const code = document.getElementById('votingCodeInput').value.trim();
+    if(!code){ showToast('Enter a code first', 'error'); return; }
+    const result = await apiPost({ action: 'setVotingCode', adminPassword, code });
+    showToast(result.ok ? 'Voting code saved' : 'Could not save code', result.ok ? 'success' : 'error');
   }
 
   async function loadStats(){
@@ -440,13 +465,11 @@
 
   function renderStats(){
     const totalVotes = contestants.reduce((sum, c) => sum + c.votes, 0);
-    const revenue = totalPasses * VOTE_PRICE;
     const leader = contestants[0];
     document.getElementById('statsRow').innerHTML = `
       <div class="stat-card"><div class="val">${contestants.length}</div><div class="lbl">Contestants</div></div>
-      <div class="stat-card"><div class="val">${totalPasses}</div><div class="lbl">Voting passes sold</div></div>
+      <div class="stat-card"><div class="val">${totalPasses}</div><div class="lbl">Voters unlocked</div></div>
       <div class="stat-card"><div class="val">${totalVotes}</div><div class="lbl">Total votes cast</div></div>
-      <div class="stat-card"><div class="val">${revenue.toLocaleString()}</div><div class="lbl">Revenue (UGX)</div></div>
       <div class="stat-card"><div class="val" style="font-size:16px;">${leader ? escapeHtml(leader.name) : '—'}</div><div class="lbl">Current leader</div></div>
     `;
   }
