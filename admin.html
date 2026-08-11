@@ -274,6 +274,14 @@
       </div>
     </div>
 
+    <div class="panel" style="border-color:rgba(240,82,59,0.3);">
+      <h2 style="color:var(--coral);">Danger zone</h2>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">
+        Resets every contestant's vote count to 0 and clears the votes log. Voters keep their unlocked pass and can vote again from scratch. This cannot be undone.
+      </p>
+      <button class="btn" style="background:var(--coral); width:auto;" onclick="resetAllVotes()">Reset all votes to 0</button>
+    </div>
+
     <div class="panel">
       <h2>Contestants <span id="countBadge" style="color:var(--muted); font-weight:400; font-size:13px;"></span></h2>
       <div style="margin-bottom:14px;">
@@ -630,6 +638,20 @@
       loadContestants();
     } else {
       showToast('Could not delete contestant', 'error');
+    }
+  }
+
+  async function resetAllVotes(){
+    const totalVotes = contestants.reduce((sum, c) => sum + c.votes, 0);
+    if(!confirm('Reset ALL votes to 0? This will erase ' + totalVotes + ' vote(s) across every category and cannot be undone.')) return;
+    if(!confirm('Are you absolutely sure? Type OK to confirm you want to wipe every vote.')) return;
+
+    const result = await apiPost({ action: 'resetAllVotes', adminPassword });
+    if(result.ok){
+      showToast('All votes have been reset to 0', 'success');
+      loadContestants();
+    } else {
+      showToast('Could not reset votes', 'error');
     }
   }
 
