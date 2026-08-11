@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Holiday Star Contest — Vote Now</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<script src="https://checkout.flutterwave.com/v3.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -210,6 +209,30 @@
   .empty, .loading{
     text-align:center; padding:60px 20px; color:var(--muted); font-size:14px;
   }
+  .code-panel{
+    max-width:420px; margin:0 auto 24px; padding:20px;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    text-align:center;
+  }
+  .code-panel h3{ font-family:'Baloo 2', sans-serif; font-size:16px; margin-bottom:4px; }
+  .code-panel p{ color:var(--muted); font-size:12px; margin-bottom:14px; }
+  .code-row{ display:flex; gap:8px; }
+  .code-row input{
+    flex:1; background:var(--bg-soft); border:1px solid var(--line); color:var(--cream);
+    border-radius:10px; padding:12px 14px; font-size:15px; text-align:center;
+    font-family:'JetBrains Mono', monospace; letter-spacing:0.08em; text-transform:uppercase;
+    outline:none;
+  }
+  .code-row input:focus{ border-color:var(--gold); }
+  .code-row button{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px;
+    background:var(--gold); color:#14121f; border:none;
+    padding:0 18px; border-radius:10px; cursor:pointer; white-space:nowrap;
+  }
+  .code-row button:hover{ background:#ffcf6e; }
+  .code-row button:disabled{ opacity:0.5; cursor:not-allowed; }
+  .code-error{ color:var(--coral); font-size:12px; margin-top:10px; min-height:14px; }
+
   .pass-banner{
     max-width:1000px; margin:0 auto 24px; padding:14px 20px;
     background:rgba(47,191,113,0.1); border:1px solid rgba(47,191,113,0.3);
@@ -251,9 +274,19 @@
 <header>
   <span class="eyebrow">Vote · Ticket 500 UGX</span>
   <h1 id="contestTitle">Holiday <span>Star</span> Contest</h1>
-  <p class="sub">500 UGX to vote. Pick your favourite, pay, and watch the leaderboard move live.</p>
+  <p class="sub">Every vote is a 500 UGX ticket. Pick your favourite, pay, and watch the leaderboard move live.</p>
   <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
 </header>
+
+<div class="code-panel" id="codePanel" style="display:none;">
+  <h3>Have a voting code?</h3>
+  <p>Enter your code to unlock free voting in every category.</p>
+  <div class="code-row">
+    <input type="text" id="codeInput" placeholder="ABCD-1234" maxlength="9" onkeydown="if(event.key==='Enter') submitCode()">
+    <button onclick="submitCode()" id="codeSubmitBtn">Unlock</button>
+  </div>
+  <div class="code-error" id="codeError"></div>
+</div>
 
 <div class="cat-tabs-wrap" id="catTabsWrap" style="display:none;">
   <div class="cat-tabs" id="catTabs" onscroll="updateCatArrows()"></div>
@@ -284,8 +317,6 @@
 <script>
   // ====== CONFIGURATION ======
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbznNHQok3fslPpq2L9lUctFTqxvqaJ0CN_YslwyH6WcJBPWTZ0f-OoWYTw-jvaU2jsw/exec";
-  const FLW_PUBLIC_KEY = "FLWPUBK_TEST-05e5322ca98c39fbbf131b2c61ba286a-X";
-  const VOTE_PRICE = 500;
   // ============================
 
   let contestants = [];
@@ -353,12 +384,15 @@
 
   function renderPassBanner(){
     const banner = document.getElementById('passBanner');
+    const codePanel = document.getElementById('codePanel');
     if(passId){
       banner.style.display = 'block';
+      codePanel.style.display = 'none';
       banner.innerHTML = 'You have an active voting pass — you can vote once in each category. Voted so far: ' +
         (votedCategories.length ? votedCategories.map(id => escapeHtml(categoryNameById(id))).join(', ') : 'none yet');
     } else {
       banner.style.display = 'none';
+      codePanel.style.display = 'block';
     }
   }
 
@@ -368,7 +402,7 @@
   }
 
   async function loadVotedCategories(){
-    if(!passId) return;
+    if(!passId){ renderPassBanner(); return; }
     try{
       const res = await fetch(BACKEND_URL + '?action=getVotedCategories&passId=' + encodeURIComponent(passId));
       const data = await res.json();
@@ -512,7 +546,7 @@
             ? '<span class="voted-badge">✓ Voted here</span>'
             : `<button class="vote-btn" onclick="startVote('${c.id}', '${c.categoryId}', '${escapeHtml(c.name).replace(/'/g,"\\'")}')" ${votingOpen ? '' : 'disabled'}>
                 Vote
-                <span class="price">${passId ? 'Free with pass' : VOTE_PRICE + ' UGX'}</span>
+                <span class="price">Free</span>
               </button>`
           }
         </div>
@@ -529,58 +563,43 @@
       showToast('You already voted in this category.', 'error');
       return;
     }
-
-    if(passId){
-      // Already have an active pass — just spend it on this category, no payment needed
-      castVoteWithPass(contestantId, categoryId);
+    if(!passId){
+      showToast('Enter your voting code above first.', 'error');
+      document.getElementById('codeInput').focus();
+      document.getElementById('codePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-
-    // No pass yet — pay 500 UGX once to get one
-    const txRef = 'PASS-' + deviceId + '-' + Date.now();
-    localStorage.setItem('pendingVote', JSON.stringify({ contestantId, categoryId, txRef }));
-    FlutterwaveCheckout({
-      public_key: FLW_PUBLIC_KEY,
-      tx_ref: txRef,
-      amount: VOTE_PRICE,
-      currency: 'UGX',
-      payment_options: 'mobilemoneyuganda, card',
-      redirect_url: window.location.origin + window.location.pathname,
-      customer: {
-        email: 'voter' + Date.now() + '@holidaystarcontest.com',
-        name: 'Voter'
-      },
-      customizations: {
-        title: 'Holiday Star Contest — Voting Pass',
-        description: 'One-time pass: vote once in every category',
-      },
-      callback: function(response){
-        localStorage.removeItem('pendingVote');
-        createPassThenVote(response.transaction_id, txRef, contestantId, categoryId);
-      },
-      onclose: function(){}
-    });
+    castVoteWithPass(contestantId, categoryId);
   }
 
-  async function createPassThenVote(txId, txRef, contestantId, categoryId){
-    showToast('Confirming your payment…');
+  async function submitCode(){
+    const input = document.getElementById('codeInput');
+    const errorEl = document.getElementById('codeError');
+    const btn = document.getElementById('codeSubmitBtn');
+    const code = input.value.trim();
+    if(!code){ errorEl.textContent = 'Enter a code first.'; return; }
+
+    btn.disabled = true;
+    errorEl.textContent = '';
     try{
       const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'createPass', deviceId, txId, txRef })
+        body: JSON.stringify({ action: 'redeemCode', code, deviceId })
       });
       const data = await res.json();
       if(data.ok){
         passId = data.passId;
         localStorage.setItem('votingPassId', passId);
-        showToast('Voting pass unlocked! Casting your vote…', 'success');
-        castVoteWithPass(contestantId, categoryId);
+        showToast('Voting unlocked! Pick a category and vote 🌟', 'success');
+        input.value = '';
+        loadVotedCategories();
       } else {
-        showToast(data.reason || 'Could not verify payment.', 'error');
+        errorEl.textContent = data.reason || data.error || 'Could not unlock voting.';
       }
     }catch(e){
-      showToast('Payment succeeded but confirming it failed. Contact support with your transaction ID: ' + txId, 'error');
+      errorEl.textContent = 'Could not reach the server. Please try again.';
     }
+    btn.disabled = false;
   }
 
   async function castVoteWithPass(contestantId, categoryId){
@@ -603,39 +622,10 @@
     }
   }
 
-  function checkRedirectReturn(){
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get('status');
-    const txRef = params.get('tx_ref');
-    const transactionId = params.get('transaction_id');
-    if(!status || !txRef){ return; }
-
-    // Clean the URL so refreshing doesn't re-trigger this
-    window.history.replaceState({}, document.title, window.location.pathname);
-
-    const pendingRaw = localStorage.getItem('pendingVote');
-    const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-
-    if(status !== 'successful' && status !== 'completed'){
-      showToast('Payment was not completed.', 'error');
-      localStorage.removeItem('pendingVote');
-      return;
-    }
-
-    if(!pending || pending.txRef !== txRef){
-      showToast('Payment completed, but could not match it to your vote. Contact support with reference: ' + txRef, 'error');
-      return;
-    }
-
-    localStorage.removeItem('pendingVote');
-    createPassThenVote(transactionId, txRef, pending.contestantId, pending.categoryId);
-  }
-
   loadSettings();
   loadCategories();
   loadContestants();
   loadVotedCategories();
-  checkRedirectReturn();
 </script>
 
 </body>
