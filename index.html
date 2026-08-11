@@ -209,6 +209,41 @@
   .empty, .loading{
     text-align:center; padding:60px 20px; color:var(--muted); font-size:14px;
   }
+  .free-banner{
+    max-width:480px; margin:0 auto 18px; padding:16px 20px;
+    background:linear-gradient(120deg, rgba(255,193,69,0.18), rgba(240,82,59,0.18), rgba(255,193,69,0.18));
+    background-size:200% 100%;
+    animation:shimmer 4s linear infinite;
+    border:1px solid rgba(255,193,69,0.35);
+    border-radius:var(--radius);
+    text-align:center;
+  }
+  @keyframes shimmer{ 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+  .free-banner .bounce-icon{
+    font-size:26px; display:inline-block;
+    animation:bounce 1.6s ease-in-out infinite;
+  }
+  @keyframes bounce{
+    0%, 100%{ transform:translateY(0) rotate(0deg); }
+    25%{ transform:translateY(-6px) rotate(-6deg); }
+    50%{ transform:translateY(0) rotate(0deg); }
+    75%{ transform:translateY(-3px) rotate(6deg); }
+  }
+  .free-banner h4{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:16px;
+    color:var(--gold); margin:6px 0 6px;
+  }
+  .free-banner p{ color:var(--cream); font-size:12.5px; line-height:1.5; opacity:0.9; }
+  .free-banner .sources{
+    display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:10px;
+  }
+  .free-banner .source-chip{
+    display:inline-flex; align-items:center; gap:5px;
+    background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1);
+    border-radius:999px; padding:5px 12px; font-size:11px; color:var(--cream);
+    font-family:'JetBrains Mono', monospace;
+  }
+
   .code-panel{
     max-width:420px; margin:0 auto 24px; padding:20px;
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
@@ -272,11 +307,22 @@
 <div class="stars" id="stars"></div>
 
 <header>
-  <span class="eyebrow">Vote · Ticket 500 UGX</span>
+  <span class="eyebrow">Vote · Ticket is open</span>
   <h1 id="contestTitle">Holiday <span>Star</span> Contest</h1>
   <p class="sub">Every vote is a 500 UGX ticket. Pick your favourite, pay, and watch the leaderboard move live.</p>
   <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
 </header>
+
+<div class="free-banner" id="freeBanner">
+  <span class="bounce-icon">🎉</span>
+  <h4>Voting is 100% FREE!</h4>
+  <p>Just grab the voting code and unlock voting in every category — no payment needed.</p>
+  <div class="sources">
+    <span class="source-chip">🤳 Ask a contestant</span>
+    <span class="source-chip">💬 WhatsApp groups</span>
+    <span class="source-chip">📢 Announcements</span>
+  </div>
+</div>
 
 <div class="code-panel" id="codePanel" style="display:none;">
   <h3>Have a voting code?</h3>
@@ -385,14 +431,17 @@
   function renderPassBanner(){
     const banner = document.getElementById('passBanner');
     const codePanel = document.getElementById('codePanel');
+    const freeBanner = document.getElementById('freeBanner');
     if(passId){
       banner.style.display = 'block';
       codePanel.style.display = 'none';
+      freeBanner.style.display = 'none';
       banner.innerHTML = 'You have an active voting pass — you can vote once in each category. Voted so far: ' +
         (votedCategories.length ? votedCategories.map(id => escapeHtml(categoryNameById(id))).join(', ') : 'none yet');
     } else {
       banner.style.display = 'none';
       codePanel.style.display = 'block';
+      freeBanner.style.display = 'block';
     }
   }
 
