@@ -351,16 +351,17 @@
 
   async function loadAll(){
     await loadSettings();
-    await loadCategories();
-    await loadStats();
-    await loadVotingCode();
-    await loadContestants();
+    await Promise.allSettled([loadCategories(), loadStats(), loadVotingCode(), loadContestants()]);
   }
 
   async function loadVotingCode(){
-    const result = await apiPost({ action: 'getVotingCode', adminPassword });
-    if(result.ok){
-      document.getElementById('votingCodeInput').value = result.code;
+    try{
+      const result = await apiPost({ action: 'getVotingCode', adminPassword });
+      if(result.ok){
+        document.getElementById('votingCodeInput').value = result.code;
+      }
+    }catch(e){
+      showToast('Could not load voting code', 'error');
     }
   }
 
@@ -372,20 +373,28 @@
   }
 
   async function loadStats(){
-    const res = await fetch(BACKEND_URL + '?action=getStats');
-    const data = await res.json();
-    if(data.ok){
-      totalPasses = data.totalPasses;
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getStats');
+      const data = await res.json();
+      if(data.ok){
+        totalPasses = data.totalPasses;
+      }
+    }catch(e){
+      showToast('Could not load stats', 'error');
     }
   }
 
   async function loadCategories(){
-    const res = await fetch(BACKEND_URL + '?action=getCategories');
-    const data = await res.json();
-    if(data.ok){
-      categories = data.categories;
-      renderCategoryList();
-      renderCategorySelects();
+    try{
+      const res = await fetch(BACKEND_URL + '?action=getCategories');
+      const data = await res.json();
+      if(data.ok){
+        categories = data.categories;
+        renderCategoryList();
+        renderCategorySelects();
+      }
+    }catch(e){
+      showToast('Could not load categories', 'error');
     }
   }
 
@@ -462,12 +471,16 @@
   }
 
   async function loadContestants(){
-    const data = await apiPost({ action: 'getContestantsAdmin', adminPassword });
-    if(data.ok){
-      contestants = data.contestants;
-      renderStats();
-      renderList();
-      renderCategoryList();
+    try{
+      const data = await apiPost({ action: 'getContestantsAdmin', adminPassword });
+      if(data.ok){
+        contestants = data.contestants;
+        renderStats();
+        renderList();
+        renderCategoryList();
+      }
+    }catch(e){
+      showToast('Could not load contestants', 'error');
     }
   }
 
