@@ -697,10 +697,43 @@
     }
   }
 
-  loadSettings();
-  loadCategories();
-  loadContestants();
-  loadVotedCategories();
+  async function bootstrap(){
+    try{
+      const url = BACKEND_URL + '?action=bootstrap' + (passId ? '&passId=' + encodeURIComponent(passId) : '');
+      const res = await fetch(url);
+      const data = await res.json();
+      if(!data.ok){
+        document.getElementById('grid').innerHTML = '<div class="empty">Could not load the contest right now.</div>';
+        return;
+      }
+
+      document.getElementById('contestTitle').innerHTML = data.contestTitle.replace(/(\S+)$/, '<span>$1</span>');
+      votingOpen = data.votingOpen;
+      const pill = document.getElementById('statusPill');
+      const text = document.getElementById('statusText');
+      if(votingOpen){
+        text.textContent = 'Voting is open';
+      } else {
+        pill.classList.add('closed');
+        text.textContent = 'Voting is closed';
+        document.getElementById('closedBanner').style.display = 'block';
+      }
+
+      categories = data.categories;
+      if(categories.length && !activeCategory) activeCategory = categories[0].id;
+      renderCatTabs();
+
+      contestants = data.contestants;
+      votedCategories = data.votedCategories || [];
+      renderPassBanner();
+      renderPodium();
+      renderGrid();
+    }catch(e){
+      document.getElementById('grid').innerHTML = '<div class="empty">Could not connect. Check your internet and try again.</div>';
+    }
+  }
+
+  bootstrap();
 </script>
 
 </body>
