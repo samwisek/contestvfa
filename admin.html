@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Holiday Star Contest — Admin</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -295,14 +296,16 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbwtXJwixYCyEygWSsFo_2nSCmpFqkl_bM9FgcSQ3djsaiAVl6BN0X17c6I6cZe8sIaQ/exec";
+  const SUPABASE_URL = "https://mnvuowwnzrxrcqqedpmj.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_VBVQjhwC3LbU24DZDd1zaQ_ILcH3KiF";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let adminPassword = '';
   let contestants = [];
   let categories = [];
   let votingOpen = true;
   let editingId = null;
-  let pendingPhoto = { url: '', fileId: '' };
+  let pendingPhoto = { url: '' };
   let totalPasses = 0;
 
   function showToast(msg, type){
@@ -322,23 +325,28 @@
     return div.innerHTML;
   }
 
-  async function apiPost(body){
-    const res = await fetch(BACKEND_URL, { method: 'POST', body: JSON.stringify(body) });
-    return res.json();
+  async function callRpc(fnName, params){
+    const { data, error } = await sb.rpc(fnName, params);
+    if(error) throw error;
+    return data;
   }
 
   async function login(){
     const pw = document.getElementById('passwordInput').value.trim();
     if(!pw){ return; }
     document.getElementById('loginError').textContent = 'Checking…';
-    const result = await apiPost({ action: 'getAllVotes', adminPassword: pw });
-    if(result.ok){
-      adminPassword = pw;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      loadAll();
-    } else {
-      document.getElementById('loginError').textContent = 'Wrong password. Try again.';
+    try{
+      const result = await callRpc('admin_get_stats', { p_password: pw });
+      if(result.ok){
+        adminPassword = pw;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        loadAll();
+      } else {
+        document.getElementById('loginError').textContent = 'Wrong password. Try again.';
+      }
+    }catch(e){
+      document.getElementById('loginError').textContent = 'Could not reach the server.';
     }
   }
 
@@ -359,7 +367,7 @@
 
   async function loadVotingCode(){
     try{
-      const result = await apiPost({ action: 'getVotingCode', adminPassword });
+      const result = await callRpc('admin_get_voting_code', { p_password: adminPassword });
       if(result.ok){
         document.getElementById('votingCodeInput').value = result.code;
       }
@@ -371,16 +379,19 @@
   async function saveVotingCode(){
     const code = document.getElementById('votingCodeInput').value.trim();
     if(!code){ showToast('Enter a code first', 'error'); return; }
-    const result = await apiPost({ action: 'setVotingCode', adminPassword, code });
-    showToast(result.ok ? 'Voting code saved' : 'Could not save code', result.ok ? 'success' : 'error');
+    try{
+      const result = await callRpc('admin_set_voting_code', { p_password: adminPassword, p_code: code });
+      showToast(result.ok ? 'Voting code saved' : 'Could not save code', result.ok ? 'success' : 'error');
+    }catch(e){
+      showToast('Could not save code', 'error');
+    }
   }
 
   async function loadStats(){
     try{
-      const res = await fetch(BACKEND_URL + '?action=getStats');
-      const data = await res.json();
-      if(data.ok){
-        totalPasses = data.totalPasses;
+      const result = await callRpc('admin_get_stats', { p_password: adminPassword });
+      if(result.ok){
+        totalPasses = result.totalPasses;
       }
     }catch(e){
       showToast('Could not load stats', 'error');
@@ -389,10 +400,9 @@
 
   async function loadCategories(){
     try{
-      const res = await fetch(BACKEND_URL + '?action=getCategories');
-      const data = await res.json();
-      if(data.ok){
-        categories = data.categories;
+      const result = await callRpc('admin_get_categories', { p_password: adminPassword });
+      if(result.ok){
+        categories = result.categories;
         renderCategoryList();
         renderCategorySelects();
       }
@@ -437,12 +447,16 @@
     const input = document.getElementById('newCategoryInput');
     const name = input.value.trim();
     if(!name){ return; }
-    const result = await apiPost({ action: 'addCategory', adminPassword, name });
-    if(result.ok){
-      input.value = '';
-      showToast('Category added', 'success');
-      loadCategories();
-    } else {
+    try{
+      const result = await callRpc('admin_add_category', { p_password: adminPassword, p_name: name });
+      if(result.ok){
+        input.value = '';
+        showToast('Category added', 'success');
+        loadCategories();
+      } else {
+        showToast('Could not add category', 'error');
+      }
+    }catch(e){
       showToast('Could not add category', 'error');
     }
   }
@@ -453,29 +467,36 @@
       ? `Delete "${name}"? ${count} contestant(s) in it will become uncategorized. This cannot be undone.`
       : `Delete "${name}"? This cannot be undone.`;
     if(!confirm(warning)) return;
-    const result = await apiPost({ action: 'deleteCategory', adminPassword, id });
-    if(result.ok){
-      showToast('Category deleted', 'success');
-      loadCategories();
-      renderList();
-    } else {
+    try{
+      const result = await callRpc('admin_delete_category', { p_password: adminPassword, p_id: id });
+      if(result.ok){
+        showToast('Category deleted', 'success');
+        loadCategories();
+        renderList();
+      } else {
+        showToast('Could not delete category', 'error');
+      }
+    }catch(e){
       showToast('Could not delete category', 'error');
     }
   }
 
   async function loadSettings(){
-    const res = await fetch(BACKEND_URL + '?action=getSettings');
-    const data = await res.json();
-    if(data.ok){
-      votingOpen = data.votingOpen;
-      document.getElementById('titleInput').value = data.contestTitle;
-      renderVotingToggle();
+    try{
+      const result = await callRpc('get_bootstrap', { p_pass_id: null });
+      if(result.ok){
+        votingOpen = result.votingOpen;
+        document.getElementById('titleInput').value = result.contestTitle;
+        renderVotingToggle();
+      }
+    }catch(e){
+      showToast('Could not load settings', 'error');
     }
   }
 
   async function loadContestants(){
     try{
-      const data = await apiPost({ action: 'getContestantsAdmin', adminPassword });
+      const data = await callRpc('admin_get_contestants', { p_password: adminPassword });
       if(data.ok){
         contestants = data.contestants;
         renderStats();
@@ -535,10 +556,14 @@
   async function toggleVoting(){
     votingOpen = !votingOpen;
     renderVotingToggle();
-    const result = await apiPost({ action: 'toggleVoting', adminPassword, open: votingOpen });
-    if(result.ok){
-      showToast(votingOpen ? 'Voting opened' : 'Voting closed', 'success');
-    } else {
+    try{
+      const result = await callRpc('admin_toggle_voting', { p_password: adminPassword, p_open: votingOpen });
+      if(result.ok){
+        showToast(votingOpen ? 'Voting opened' : 'Voting closed', 'success');
+      } else {
+        throw new Error('failed');
+      }
+    }catch(e){
       votingOpen = !votingOpen;
       renderVotingToggle();
       showToast('Could not update voting status', 'error');
@@ -548,11 +573,15 @@
   async function saveTitle(){
     const title = document.getElementById('titleInput').value.trim();
     if(!title) return;
-    const result = await apiPost({ action: 'setContestTitle', adminPassword, title });
-    showToast(result.ok ? 'Title saved' : 'Could not save title', result.ok ? 'success' : 'error');
+    try{
+      const result = await callRpc('admin_set_title', { p_password: adminPassword, p_title: title });
+      showToast(result.ok ? 'Title saved' : 'Could not save title', result.ok ? 'success' : 'error');
+    }catch(e){
+      showToast('Could not save title', 'error');
+    }
   }
 
-  function handleFileSelect(event){
+  async function handleFileSelect(event){
     const file = event.target.files[0];
     if(!file) return;
     const statusEl = document.getElementById('uploadStatus');
@@ -561,26 +590,19 @@
     statusEl.textContent = 'Uploading…';
     statusEl.style.color = 'var(--muted)';
 
-    const reader = new FileReader();
-    reader.onload = async function(){
-      const base64 = reader.result.split(',')[1];
-      const result = await apiPost({
-        action: 'uploadImage',
-        adminPassword,
-        imageBase64: base64,
-        fileName: file.name,
-        mimeType: file.type
-      });
-      if(result.ok){
-        pendingPhoto = { url: result.url, fileId: result.fileId };
-        statusEl.textContent = 'Photo uploaded ✓';
-        statusEl.style.color = 'var(--green)';
-      } else {
-        statusEl.textContent = 'Upload failed — try again';
-        statusEl.style.color = 'var(--coral)';
-      }
-    };
-    reader.readAsDataURL(file);
+    try{
+      const path = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const { error: uploadError } = await sb.storage.from('contestant-photos').upload(path, file);
+      if(uploadError) throw uploadError;
+
+      const { data: urlData } = sb.storage.from('contestant-photos').getPublicUrl(path);
+      pendingPhoto = { url: urlData.publicUrl };
+      statusEl.textContent = 'Photo uploaded ✓';
+      statusEl.style.color = 'var(--green)';
+    }catch(e){
+      statusEl.textContent = 'Upload failed — try again';
+      statusEl.style.color = 'var(--coral)';
+    }
   }
 
   async function saveContestant(){
@@ -594,16 +616,20 @@
     btn.disabled = true;
 
     let result;
-    if(editingId){
-      result = await apiPost({
-        action: 'editContestant', adminPassword, id: editingId,
-        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId, categoryId
-      });
-    } else {
-      result = await apiPost({
-        action: 'addContestant', adminPassword,
-        name, bio, photoUrl: pendingPhoto.url, photoFileId: pendingPhoto.fileId, categoryId
-      });
+    try{
+      if(editingId){
+        result = await callRpc('admin_edit_contestant', {
+          p_password: adminPassword, p_id: editingId,
+          p_name: name, p_bio: bio, p_photo_url: pendingPhoto.url, p_category_id: categoryId
+        });
+      } else {
+        result = await callRpc('admin_add_contestant', {
+          p_password: adminPassword,
+          p_name: name, p_bio: bio, p_photo_url: pendingPhoto.url, p_category_id: categoryId
+        });
+      }
+    }catch(e){
+      result = { ok: false };
     }
 
     btn.disabled = false;
@@ -625,7 +651,7 @@
     document.getElementById('bioInput').value = c.bio || '';
     document.getElementById('photoPreview').src = c.photoUrl || fallbackImg(c.name);
     document.getElementById('categorySelect').value = c.categoryId || '';
-    pendingPhoto = { url: c.photoUrl || '', fileId: '' };
+    pendingPhoto = { url: c.photoUrl || '' };
     document.getElementById('saveBtn').textContent = 'Save changes';
     document.getElementById('cancelEditBtn').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -635,7 +661,7 @@
 
   function resetForm(){
     editingId = null;
-    pendingPhoto = { url: '', fileId: '' };
+    pendingPhoto = { url: '' };
     document.getElementById('formHeading').textContent = 'Add contestant';
     document.getElementById('nameInput').value = '';
     document.getElementById('bioInput').value = '';
@@ -648,11 +674,15 @@
 
   async function deleteContestant(id, name){
     if(!confirm('Delete ' + name + '? This cannot be undone.')) return;
-    const result = await apiPost({ action: 'deleteContestant', adminPassword, id });
-    if(result.ok){
-      showToast('Contestant deleted', 'success');
-      loadContestants();
-    } else {
+    try{
+      const result = await callRpc('admin_delete_contestant', { p_password: adminPassword, p_id: id });
+      if(result.ok){
+        showToast('Contestant deleted', 'success');
+        loadContestants();
+      } else {
+        showToast('Could not delete contestant', 'error');
+      }
+    }catch(e){
       showToast('Could not delete contestant', 'error');
     }
   }
@@ -662,29 +692,39 @@
     if(!confirm('Reset ALL votes to 0? This will erase ' + totalVotes + ' vote(s) across every category and cannot be undone.')) return;
     if(!confirm('Are you absolutely sure? Type OK to confirm you want to wipe every vote.')) return;
 
-    const result = await apiPost({ action: 'resetAllVotes', adminPassword });
-    if(result.ok){
-      showToast('All votes have been reset to 0', 'success');
-      loadContestants();
-    } else {
+    try{
+      const result = await callRpc('admin_reset_all_votes', { p_password: adminPassword });
+      if(result.ok){
+        showToast('All votes have been reset to 0', 'success');
+        loadContestants();
+      } else {
+        showToast('Could not reset votes', 'error');
+      }
+    }catch(e){
       showToast('Could not reset votes', 'error');
     }
   }
 
   async function exportVotesCsv(){
-    const result = await apiPost({ action: 'getAllVotes', adminPassword });
-    if(!result.ok){ showToast('Could not fetch votes', 'error'); return; }
-    const rows = result.rows;
-    const csv = rows.map(row =>
-      row.map(cell => '"' + String(cell).replace(/"/g,'""') + '"').join(',')
-    ).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'votes-export-' + new Date().toISOString().slice(0,10) + '.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    try{
+      const result = await callRpc('admin_get_all_votes', { p_password: adminPassword });
+      if(!result.ok){ showToast('Could not fetch votes', 'error'); return; }
+      const rows = result.rows;
+      const header = ['Timestamp', 'ContestantID', 'CategoryID', 'PassID', 'Status'];
+      const lines = [header].concat(rows.map(r => [r.timestamp, r.contestantId, r.categoryId, r.passId, r.status]));
+      const csv = lines.map(row =>
+        row.map(cell => '"' + String(cell).replace(/"/g,'""') + '"').join(',')
+      ).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'votes-export-' + new Date().toISOString().slice(0,10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }catch(e){
+      showToast('Could not export votes', 'error');
+    }
   }
 </script>
 
