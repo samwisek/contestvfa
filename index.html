@@ -314,6 +314,15 @@
     border-radius:var(--radius); text-align:center; font-size:14px; color:var(--cream);
   }
 
+  .announcement-banner{
+    max-width:600px; margin:0 auto 20px; padding:14px 20px;
+    background:rgba(255,193,69,0.1); border:1px solid rgba(255,193,69,0.3);
+    border-radius:var(--radius); text-align:center; font-size:13.5px; color:var(--cream);
+    display:flex; align-items:center; gap:10px; justify-content:center;
+  }
+  .announcement-banner .icon{ font-size:16px; flex-shrink:0; }
+  .announcement-banner .text{ line-height:1.4; white-space:pre-wrap; text-align:left; }
+
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--card); border:1px solid var(--line); border-radius:14px;
@@ -340,6 +349,11 @@
   <p class="sub">Grab the voting code, unlock every category, and watch the leaderboard move live.</p>
   <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Checking status…</span></div>
 </header>
+
+<div class="announcement-banner" id="announcementBanner" style="display:none;">
+  <span class="icon">📣</span>
+  <span class="text" id="announcementText"></span>
+</div>
 
 <div class="free-banner" id="freeBanner">
   <div class="badge-wrap"><span class="bounce-icon">🎉</span></div>
@@ -653,6 +667,14 @@
         pill.classList.add('closed');
         text.textContent = 'Voting is closed';
         document.getElementById('closedBanner').style.display = 'block';
+      }
+
+      const announcementBanner = document.getElementById('announcementBanner');
+      if(data.announcement && data.announcement.trim()){
+        document.getElementById('announcementText').textContent = data.announcement;
+        announcementBanner.style.display = 'flex';
+      } else {
+        announcementBanner.style.display = 'none';
       }
 
       categories = data.categories;
