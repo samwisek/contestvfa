@@ -242,6 +242,18 @@
     </div>
 
     <div class="panel">
+      <h2>Announcement</h2>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">
+        Shows as a banner at the top of the voting site for everyone. Leave empty and save to remove it.
+      </p>
+      <textarea id="announcementInput" placeholder="e.g. Voting closes at 6PM today! Final results announced tomorrow." rows="2" style="margin-bottom:10px;"></textarea>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small" style="width:auto;" onclick="saveAnnouncement()">Post announcement</button>
+        <button class="btn secondary small" style="width:auto;" onclick="clearAnnouncement()">Clear</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>Contest settings</h2>
       <div class="settings-row">
         <div class="toggle" id="votingToggle" onclick="toggleVoting()">
@@ -487,10 +499,31 @@
       if(result.ok){
         votingOpen = result.votingOpen;
         document.getElementById('titleInput').value = result.contestTitle;
+        document.getElementById('announcementInput').value = result.announcement || '';
         renderVotingToggle();
       }
     }catch(e){
       showToast('Could not load settings', 'error');
+    }
+  }
+
+  async function saveAnnouncement(){
+    const message = document.getElementById('announcementInput').value.trim();
+    try{
+      const result = await callRpc('admin_set_announcement', { p_password: adminPassword, p_message: message });
+      showToast(result.ok ? 'Announcement posted' : 'Could not post announcement', result.ok ? 'success' : 'error');
+    }catch(e){
+      showToast('Could not post announcement', 'error');
+    }
+  }
+
+  async function clearAnnouncement(){
+    document.getElementById('announcementInput').value = '';
+    try{
+      const result = await callRpc('admin_set_announcement', { p_password: adminPassword, p_message: '' });
+      showToast(result.ok ? 'Announcement cleared' : 'Could not clear announcement', result.ok ? 'success' : 'error');
+    }catch(e){
+      showToast('Could not clear announcement', 'error');
     }
   }
 
